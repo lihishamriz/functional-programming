@@ -138,7 +138,7 @@ zipWith f as bs = foldr go [] (toZip as bs)
 unzip :: [(a, b)] -> ([a], [b])
 unzip = foldr go ([], [])
     where
-        go (x, y) (xs, ys) = (x:xs, y:ys)
+        go (x, y) (xs, ys) = (x : xs, y : ys)
 
 zip :: [a] -> [b] -> [(a, b)]
 zip = zipWith (,)
@@ -187,11 +187,25 @@ parseTemplate s = go s []
                         Just(c, d) -> go d (snoc res' $ Variable c)
                     go' _ _ = Nothing
 
--- type VariableName = String
--- type VariableValue = String
--- type MissingVariable = String
--- assignTemplate :: [(VariableName, VariableValue)] -> [ParsedString] -> Either MissingVariable String
+type VariableName = String
+type VariableValue = String
+type MissingVariable = String
+assignTemplate :: [(VariableName, VariableValue)] -> [ParsedString] -> Either MissingVariable String
+assignTemplate = go []
+    where
+        go s _ [] = Right s
+        go s kv (PlainString x : xs) = go (s ++ x) kv xs
+        go s kv (Variable x : xs) = case lookup x kv of
+            Nothing -> Left x
+            Just y  -> go (s ++ y) kv xs
 
+data Error = MissingVar MissingVariable | InvalidTemplate deriving Show
+interpolateString :: [(VariableName, VariableValue)] -> String -> Either Error String
+interpolateString kv s = case parseTemplate s of
+    Nothing     -> Left InvalidTemplate
+    Just parsed -> case assignTemplate kv parsed of
+        Left var -> Left (MissingVar var)
+        Right x  -> Right x
 
 {-
 
@@ -216,31 +230,79 @@ Nothing
 >>> parseTemplate "Hello$!"
 Nothing
 
+>>> assignTemplate [] []
+Right ""
+
+>>> assignTemplate [] [PlainString "Hello!"] 
+Right "Hello!"
+
+>>> assignTemplate [("name", "Simon")] [PlainString "Hello ", Variable "name", PlainString "!"] 
+Right "Hello Simon!"
+
+>>> assignTemplate [("Name", "Simon")] [PlainString "Hello ", Variable "name", PlainString "!"] 
+Left "name"
+
+>>> assignTemplate [] [Variable "x", Variable "y"]
+Left "x"
+
+>>> interpolateString [("name", "Simon")] "Hello ${name}!"
+Right "Hello Simon!"
+
+>>> interpolateString [("name", "Simon")] "Hello $name!"
+Left InvalidTemplate
+
+>>> interpolateString [("Name", "Simon")] "Hello ${name}!"
+Left (MissingVar "name")
+
 -}
-
-{-
-
-data Error = MissingVar MissingVariable | InvalidTemplate deriving Show
-interpolateString :: [(VariableName, VariableValue)] -> String -> Either Error String
 
 
 -- Section 4: N-queens problem
 -- Queens and helpers.
 -- range of a non-positive number is empty, range 3 is [0, 1, 2]
 range :: Int -> [Int]
+range n | n < 0 = []
+range n = [0..n-1]
+
 -- enumerate "foo" should return [(0, 'f'), (1, 'o'), (2, 'o')]
 -- Hint: Use zip
 enumerate :: [a] -> [(Int, a)]
+enumerate s = zip (range $ length s) s
+
 -- Splits [1, 2, 3] should return [([1, 2, 3],[]), ([1, 2], [3]), ([1], [2, 3]), ([], [1, 2, 3]).
 -- Order is important!
 -- Hint: Splits [] is [([], [])].
 splits :: [a] -> [([a], [a])]
+splits = go []
+  where
+    go ys [] = [(ys, [])]
+    go ys (x : xs) = snoc (go (snoc ys x) xs) (ys, x : xs) 
+
 -- permutations of [] is [[]]
 -- permutations of [1, 2, 3] is [[1, 2, 3], [1, 3, 2], [2, 3, 1], [2, 1, 3], [3, 1, 2], [3, 2, 1]]
 -- Hint: use splits
 -- order is not important
-permutations :: [a] -> [[a]]
+-- permutations :: [a] -> [[a]]
 
+
+{-
+
+>>> range 3
+[0,1,2]
+
+>>> enumerate "foo"
+[(0,'f'),(1,'o'),(2,'o')]
+
+>>> splits [] 
+[([],[])]
+
+>>> splits [1, 2, 4]
+[([1,2,3],[]),([1,2],[3]),([1],[2,3]),([],[1,2,3])]
+
+-}
+
+
+{-
 type Column = Int
 type Solution = [Column]
 -- Returns all the solutions the n-queens problem. Returns a list of solutions, each solution made
