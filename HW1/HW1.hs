@@ -48,7 +48,7 @@ catEithers = foldr go (Right [])
     where
         go (Left a) _ = Left a
         go (Right x) (Right xs) = Right (x : xs)
-        go (Right _) (Left a) = Left a  
+        go (Right _) (Left a) = Left a
 
 mapEither :: (a -> Either b c) -> [a] -> Either b [c]
 mapEither f xs = catEithers (map f xs)
@@ -126,7 +126,7 @@ zipWith f as bs = foldr go [] (toZip as bs)
         toZip _ [] = []
         toZip (x : xs) (y : ys) = (x ,y) : toZip xs ys
 
-        go (x ,y) zs = f x y : zs 
+        go (x ,y) zs = f x y : zs
 -- zipWith f = foldr go (const [])
 --     where
 --         go x zs (y : ys) = f x y : zs ys
@@ -276,14 +276,38 @@ splits :: [a] -> [([a], [a])]
 splits = go []
   where
     go ys [] = [(ys, [])]
-    go ys (x : xs) = snoc (go (snoc ys x) xs) (ys, x : xs) 
+    go ys (x : xs) = snoc (go (snoc ys x) xs) (ys, x : xs)
 
 -- permutations of [] is [[]]
 -- permutations of [1, 2, 3] is [[1, 2, 3], [1, 3, 2], [2, 3, 1], [2, 1, 3], [3, 1, 2], [3, 2, 1]]
 -- Hint: use splits
 -- order is not important
--- permutations :: [a] -> [[a]]
+permutations :: [a] -> [[a]]
+permutations [] = [[]]
+permutations (x : xs) = concatMap (go x) (permutations xs)
+  where
+    go y ys = [snoc s y ++ t | (s, t) <- splits ys]
 
+-- Returns all the solutions the n-queens problem. Returns a list of solutions, each solution made
+-- up up of column per row. For example, queens 1 returns [[0]], queens 2 and queens 3 return [],
+-- queens 4 returns [[1,3,0,2],[2,0,3,1]].
+-- Order is not important.
+type Column = Int
+type Solution = [Column]
+
+isSafe :: [(Int, Column)] -> Bool
+isSafe [] = True
+isSafe (x : xs) = all (go x) xs && isSafe xs
+    where
+        go y z = abs (fst y - fst z) /= abs (snd y - snd z)
+
+queens :: Int -> [Solution]
+queens 1 = [[0]]
+queens n | n == 0 || n == 2 || n == 3 = []
+queens n = go $ permutations $ range n
+    where
+        go [] = []
+        go (x : xs) = if isSafe (enumerate x) then x : go xs else go xs
 
 {-
 
@@ -296,18 +320,25 @@ splits = go []
 >>> splits [] 
 [([],[])]
 
->>> splits [1, 2, 4]
+>>> splits [1, 2, 3]
 [([1,2,3],[]),([1,2],[3]),([1],[2,3]),([],[1,2,3])]
 
--}
+>>> permutations []
+[[]]
 
+>>> permutations [1, 2, 3]
+[[3,2,1],[3,1,2],[1,3,2],[2,3,1],[2,1,3],[1,2,3]]
 
-{-
-type Column = Int
-type Solution = [Column]
--- Returns all the solutions the n-queens problem. Returns a list of solutions, each solution made
--- up up of column per row. For example, queens 1 returns [[0]], queens 2 and queens 3 return [],
--- queens 4 returns [[1,3,0,2],[2,0,3,1]].
--- Order is not important.
-queens :: Int -> [Solution]
+>>> queens 1
+[[0]]
+
+>>> queens 2
+[]
+
+>>> queens 3
+[]
+
+>>> queens 4
+[[1,3,0,2],[2,0,3,1]]
+
 -}
