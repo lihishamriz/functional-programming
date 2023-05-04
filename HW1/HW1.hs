@@ -165,23 +165,60 @@ zip = zipWith (,)
 
 -- Section 3: String interpolation
 -- Parsing template strings, e.g., "Hello ${name}!". See the PDF for more information.
--- splitOn :: Char -> String -> Maybe (String, String)
-        
+splitOn :: Char -> String -> Maybe (String, String)
+splitOn c s = go c s []
+    where
+        go _ [] _ = Nothing
+        go c' (x : s') xs = if x == c' then Just (xs, s') else go c s' (snoc xs x)
+
+type Variable = String
+data ParsedString = PlainString String | Variable String deriving Show
+parseTemplate :: String -> Maybe [ParsedString]
+parseTemplate [] = Nothing
+parseTemplate s = go s []
+    where
+        go [] _ = Nothing
+        go xs res = case splitOn '$' xs of
+            Nothing -> Just (snoc res $ PlainString xs)
+            Just(a, b) -> go' b (snoc res $ PlainString a)
+                where
+                    go' ('{' : ys) res' = case splitOn '}' ys of
+                        Nothing -> Nothing
+                        Just(c, d) -> go d (snoc res' $ Variable c)
+                    go' _ _ = Nothing
+
+-- type VariableName = String
+-- type VariableValue = String
+-- type MissingVariable = String
+-- assignTemplate :: [(VariableName, VariableValue)] -> [ParsedString] -> Either MissingVariable String
+
+
 {-
 
 >>> splitOn 'x' "foobar"
+Nothing
+
+>>> splitOn 'x' "fooxbar"
+Just ("foo","bar")
+
+>>> splitOn 'x' "foox"
+Just ("foo","")
+
+>>> splitOn 'x' "fooxfooxfoo"
+Just ("foo","fooxfoo")
+
+>>> parseTemplate "Hello${world}!"
+Just [PlainString "Hello",Variable "world",PlainString "!"]
+
+>>> parseTemplate "Hello${!"
+Nothing
+
+>>> parseTemplate "Hello$!"
+Nothing
 
 -}
 
 {-
-type Variable = String
-data ParsedString = PlainString String | Variable String deriving Show
-parseTemplate :: String -> Maybe [ParsedString]
-
-type VariableName = String
-type VariableValue = String
-type MissingVariable = String
-assignTemplate :: [(VariableName, VariableValue)] -> [ParsedString] -> Either MissingVariable String
 
 data Error = MissingVar MissingVariable | InvalidTemplate deriving Show
 interpolateString :: [(VariableName, VariableValue)] -> String -> Either Error String
