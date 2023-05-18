@@ -43,14 +43,23 @@ isSubseuenceOf xs@(x : xs') (y : ys') = if x == y then isSubseuenceOf xs' ys' el
 
 {-
 
->>> "bard" `isPrefixOf` "foobar"
-False
+>>> "foo" `isPrefixOf` "foobar"
+True
 
->>> "oobo" `isInfixOf` "foobar"
+>>> "foo" `isPrefixOf` "xfoobar"
 False
 
 >>> "bar" `isSuffixOf` "foobar"
 True
+
+>>> "bard" `isPrefixOf` "foobar"
+False
+
+>>> "oob" `isInfixOf` "foobar"
+True
+
+>>> "ooo" `isInfixOf` "foobar"
+False
 
 >>> "oa" `isSubseuenceOf` "foobar"
 True
@@ -76,22 +85,27 @@ isDocumentMatchesQuery d (All qs) = all (isDocumentMatchesQuery d) qs
 isDocumentMatchesQuery d (Any qs) = any (isDocumentMatchesQuery d) qs
 isDocumentMatchesQuery d (None qs) = not (any (isDocumentMatchesQuery d) qs)
 
+documents :: [[Char]]
+documents = ["Hello!", "Goodbye!"]
+
+documents2 :: [[Char]]
+documents2 = ["abcd", "abef", "xyz", "abcdefg"]
 
 {-
 
->>> isDocumentMatchesQuery "abcd" (None [Literal "y", Literal "x"])
+>>> isDocumentMatchesQuery "abcd" (All [Literal "a", Literal "b"])
 True
 
->>> findDocuments (Literal "ood") ["Hello!", "Goodbye!"] 
+>>> findDocuments (Literal "ood") documents
 (["Goodbye!"],["Hello!"])
 
->>> findDocuments (All [Literal "a", Literal "c"]) ["abcd", "abef", "xyz", "abcdefg"]
+>>> findDocuments (All [Literal "a", Literal "c"]) documents2
 (["abcd","abcdefg"],["abef","xyz"])
 
->>> findDocuments (Any [None [Literal "x"], All [Literal "ab", Literal "yz"]]) ["abcd", "abef", "xyz", "abcdefg"]
+>>> findDocuments (Any [None [Literal "x"], All [Literal "ab", Literal "yz"]]) documents2
 (["abcd","abef","abcdefg"],["xyz"])
 
->>> findDocuments (None [None [Literal "abc"]]) ["abcd", "abef", "xyz", "abcdefg"]
+>>> findDocuments (None [None [Literal "abc"]]) documents2
 (["abcd","abcdefg"],["abef","xyz"])
 
 -}
@@ -149,6 +163,22 @@ iinits xs = go 0
 itails :: InfiniteList a -> InfiniteList (InfiniteList a)
 itails (_ :> xs) = xs :> itails xs
 
+-- Bonus: if you don't wish to implement this, simply write ifind = undefined
+ifind :: forall a. (a -> Bool) -> InfiniteList (InfiniteList a) -> Bool
+ifind f = go 1
+  where
+    go i xss = go' i (take i (itoList xss)) || go (i + 1) xss
+
+    go' _ [] = False
+    go' i (ys : yss) = go'' i 1 ys || go' i yss
+
+    go'' i j ys | j > i = go'' i (j + 1) ys
+    go'' _ j ys = case find f (take j (itoList ys)) of
+        Just _ -> True
+        Nothing -> False
+
+powers :: InfiniteList (InfiniteList Int)
+powers = imap (iiterate (\x -> x * x)) naturals
 
 {-
 
@@ -185,6 +215,10 @@ itails (_ :> xs) = xs :> itails xs
 >>> smallSample $ imap smallSample $ itails naturals
 [[1,2,3,4,5],[2,3,4,5,6],[3,4,5,6,7],[4,5,6,7,8],[5,6,7,8,9]]
 
+>>> ifind (\x -> x > 1000 && x < 1100) powers
+True
+
+
 -}
 
 
@@ -214,20 +248,34 @@ single :: a -> Tree a
 single t = Tree EmptyTree t EmptyTree
 tree :: Tree Int
 tree = Tree (Tree (single 3) 2 (Tree (single 5) 4 EmptyTree)) 1 (Tree (Tree EmptyTree 7 (single 8)) 6 EmptyTree)
+tree2 :: Tree Int
+tree2 = Tree (Tree (Tree (Tree EmptyTree 8 EmptyTree) 4 (Tree EmptyTree 9 EmptyTree)) 2 (Tree (Tree EmptyTree 10 EmptyTree) 5 EmptyTree)) 1 (Tree (Tree EmptyTree 6 EmptyTree) 3 (Tree EmptyTree 7 EmptyTree))
 
+fromListLevelOrder :: [a] -> Tree a
+fromListLevelOrder [] = EmptyTree
+fromListLevelOrder xs = go 1
+    where
+        go i | i > length xs = EmptyTree
+        go i = Tree (go (2 * i)) (xs !! (i - 1)) (go (2 * i + 1))
 
 {-
+
+>>> preOrder tree
+[1,2,3,4,5,6,7,8]
+
+>>> inOrder tree
+[3,2,5,4,1,7,8,6]
+
+>>> postOrder tree
+[3,5,4,2,8,7,6,1]
+
 >>> levelOrder tree
 [1,2,6,3,4,7,5,8]
 
--}
+>>> fromListLevelOrder [1..10]
+Tree (Tree (Tree (Tree EmptyTree 8 EmptyTree) 4 (Tree EmptyTree 9 EmptyTree)) 2 (Tree (Tree EmptyTree 10 EmptyTree) 5 EmptyTree)) 1 (Tree (Tree EmptyTree 6 EmptyTree) 3 (Tree EmptyTree 7 EmptyTree))
 
-
-{-
-
--- Bonus: if you don't wish to implement this, simply write ifind = undefined
-ifind :: forall a. (a -> Bool) -> InfiniteList (InfiniteList a) -> Bool
-
-fromListLevelOrder :: [a] -> Tree a
+>>> levelOrder tree2
+[1,2,3,4,5,6,7,8,9,10]
 
 -}
