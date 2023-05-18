@@ -41,35 +41,6 @@ isSubseuenceOf [] _ = True
 isSubseuenceOf xs@(x : xs') (y : ys') = if x == y then isSubseuenceOf xs' ys' else isSubseuenceOf xs ys'
 
 
-{-
-
->>> "foo" `isPrefixOf` "foobar"
-True
-
->>> "foo" `isPrefixOf` "xfoobar"
-False
-
->>> "bar" `isSuffixOf` "foobar"
-True
-
->>> "bard" `isPrefixOf` "foobar"
-False
-
->>> "oob" `isInfixOf` "foobar"
-True
-
->>> "ooo" `isInfixOf` "foobar"
-False
-
->>> "oa" `isSubseuenceOf` "foobar"
-True
-
->>> "ao" `isSubseuenceOf` "foobar"
-False
-
--}
-
-
 -- Section 2: Document searching
 type Phrase = String
 data Query = All [Query] | Any [Query] | None [Query] | Literal Phrase deriving Show
@@ -85,31 +56,6 @@ isDocumentMatchesQuery d (All qs) = all (isDocumentMatchesQuery d) qs
 isDocumentMatchesQuery d (Any qs) = any (isDocumentMatchesQuery d) qs
 isDocumentMatchesQuery d (None qs) = not (any (isDocumentMatchesQuery d) qs)
 
-documents :: [[Char]]
-documents = ["Hello!", "Goodbye!"]
-
-documents2 :: [[Char]]
-documents2 = ["abcd", "abef", "xyz", "abcdefg"]
-
-{-
-
->>> isDocumentMatchesQuery "abcd" (All [Literal "a", Literal "b"])
-True
-
->>> findDocuments (Literal "ood") documents
-(["Goodbye!"],["Hello!"])
-
->>> findDocuments (All [Literal "a", Literal "c"]) documents2
-(["abcd","abcdefg"],["abef","xyz"])
-
->>> findDocuments (Any [None [Literal "x"], All [Literal "ab", Literal "yz"]]) documents2
-(["abcd","abef","abcdefg"],["xyz"])
-
->>> findDocuments (None [None [Literal "abc"]]) documents2
-(["abcd","abcdefg"],["abef","xyz"])
-
--}
-
 
 -- Section 3: InfiniteList
 data InfiniteList a = a :> InfiniteList a
@@ -117,6 +63,7 @@ infixr 3 :>
 
 sample :: InfiniteList a -> [a]
 sample = take 10 . itoList
+
 smallSample :: InfiniteList a -> [a]
 smallSample = take 5 . itoList
 
@@ -163,7 +110,7 @@ iinits xs = go 0
 itails :: InfiniteList a -> InfiniteList (InfiniteList a)
 itails (_ :> xs) = xs :> itails xs
 
--- Bonus: if you don't wish to implement this, simply write ifind = undefined
+-- Bonus
 ifind :: forall a. (a -> Bool) -> InfiniteList (InfiniteList a) -> Bool
 ifind f = go 1
   where
@@ -176,50 +123,6 @@ ifind f = go 1
     go'' _ j ys = case find f (take j (itoList ys)) of
         Just _ -> True
         Nothing -> False
-
-powers :: InfiniteList (InfiniteList Int)
-powers = imap (iiterate (\x -> x * x)) naturals
-
-{-
-
->>> sample $ irepeat 1
-[1,1,1,1,1,1,1,1,1,1]
-
->>> smallSample $ iiterate (\ x -> x * x + x) 1
-[2,6,42,1806,3263442]
-
->>> sample $ icycle [1, 2, 3]
-[1,2,3,1,2,3,1,2,3,1]
-
->>> sample naturals
-[0,1,2,3,4,5,6,7,8,9]
-
->>> sample integers
-[0,1,-1,2,-2,3,-3,4,-4,5]
-
->>> sample $ imap (* 3) naturals
-[0,3,6,9,12,15,18,21,24,27]
-
->>> sample $ iscan (+) 0 naturals
-[0,1,3,6,10,15,21,28,36,45]
-
->>> sample $ izip (imap (*3) naturals) (imap (*5) naturals)
-[(0,0),(3,5),(6,10),(9,15),(12,20),(15,25),(18,30),(21,35),(24,40),(27,45)]
-
->>> sample $ interleave (imap (*3) naturals) (imap (*5) naturals)
-[0,0,3,5,6,10,9,15,12,20]
-
->>> smallSample $ iinits naturals
-[[],[0],[0,1],[0,1,2],[0,1,2,3]]
-
->>> smallSample $ imap smallSample $ itails naturals
-[[1,2,3,4,5],[2,3,4,5,6],[3,4,5,6,7],[4,5,6,7,8],[5,6,7,8,9]]
-
->>> ifind (\x -> x > 1000 && x < 1100) powers
-True
-
-
--}
 
 
 -- Section 4: Binary trees (no necessarily search trees)
@@ -244,38 +147,9 @@ levelOrder a = levelOrder' [a]
     levelOrder' (EmptyTree : xs) = levelOrder' xs
     levelOrder' (Tree l x r: xs) = x : levelOrder' (xs ++ [l, r])
 
-single :: a -> Tree a
-single t = Tree EmptyTree t EmptyTree
-tree :: Tree Int
-tree = Tree (Tree (single 3) 2 (Tree (single 5) 4 EmptyTree)) 1 (Tree (Tree EmptyTree 7 (single 8)) 6 EmptyTree)
-tree2 :: Tree Int
-tree2 = Tree (Tree (Tree (Tree EmptyTree 8 EmptyTree) 4 (Tree EmptyTree 9 EmptyTree)) 2 (Tree (Tree EmptyTree 10 EmptyTree) 5 EmptyTree)) 1 (Tree (Tree EmptyTree 6 EmptyTree) 3 (Tree EmptyTree 7 EmptyTree))
-
 fromListLevelOrder :: [a] -> Tree a
 fromListLevelOrder [] = EmptyTree
 fromListLevelOrder xs = go 1
     where
         go i | i > length xs = EmptyTree
         go i = Tree (go (2 * i)) (xs !! (i - 1)) (go (2 * i + 1))
-
-{-
-
->>> preOrder tree
-[1,2,3,4,5,6,7,8]
-
->>> inOrder tree
-[3,2,5,4,1,7,8,6]
-
->>> postOrder tree
-[3,5,4,2,8,7,6,1]
-
->>> levelOrder tree
-[1,2,6,3,4,7,5,8]
-
->>> fromListLevelOrder [1..10]
-Tree (Tree (Tree (Tree EmptyTree 8 EmptyTree) 4 (Tree EmptyTree 9 EmptyTree)) 2 (Tree (Tree EmptyTree 10 EmptyTree) 5 EmptyTree)) 1 (Tree (Tree EmptyTree 6 EmptyTree) 3 (Tree EmptyTree 7 EmptyTree))
-
->>> levelOrder tree2
-[1,2,3,4,5,6,7,8,9,10]
-
--}
