@@ -63,52 +63,6 @@ partitionEithers = foldr go ([],[])
             Left a  -> (a : xs, ys)
             Right b -> (xs, b : ys)
 
-{-
-
->>> fromMaybe 2 (Just 3)
-3
-
->>> maybe 1 length (Just "foo")
-3
-
->>> catMaybes [Just 2, Nothing, Just 3]
-[2,3]
-
->>> mapMaybe (\x -> if x > 0 then Just $ x * 10 else Nothing ) [1, -1, 10]
-[10,100]
-
->>> either length (*10) $ Left "foo"
-3
-
->>> either length (*10) $ Right 10
-100
-
->>> mapLeft (++ "bar") ( Left "foo")
-Left "foobar"
-
->>> mapLeft (++ " bar ") ( Right 10)
-Right 10
-
->>> catEithers [ Right 10 , Right 20]
-Right [10,20]
-
->>> catEithers [ Right 10 , Left "foo", Right 20 , Left " bar "]
-Left "foo"
-
->>> mapEither (\x -> if x > 0 then Right $ x * 10 else Left $ x + 5) [1, 2 , 3]
-Right [10,20,30]
-
->>> mapEither (\x -> if x > 0 then Right $ x * 10 else Left $ x + 5) [1, -1, 2, -2]
-Left 4
-
->>> concatEitherMap ( Right . (* 10) ) ( Left 5)
-Left 5
-
->>> partitionEithers [ Right "foo ", Left 42 , Right " bar ", Left 54]
-([42,54],["foo "," bar "])
-
--}
-
 
 -- Section 2: Lists and zips
 -- Fun with lists and zips
@@ -126,10 +80,6 @@ zipWith f as bs = foldr go [] (toZip as bs)
         toZip (x : xs) (y : ys) = (x ,y) : toZip xs ys
 
         go (x ,y) zs = f x y : zs
--- zipWith f = foldr go (const [])
---     where
---         go x zs (y : ys) = f x y : zs ys
---         go _ _ [] = []
 
 -- If one list is shorter than the other, take the shorter one, e.g.,
 -- zip [1, 2] [3, 4, 5] returns [(1, 3), (2, 4)]
@@ -141,25 +91,6 @@ unzip = foldr go ([], [])
 
 zip :: [a] -> [b] -> [(a, b)]
 zip = zipWith (,)
-
-{-
-
->>> snoc [1,2,3] 4
-[1,2,3,4]
-
->>> zipWith (+) [1 , 2 , 3] [4 , 5 , 6]
-[5,7,9]
-
->>> zipWith (+) [1 , 2] [4 , 5 , 6]
-[5,7]
-
->>> unzip [(1 , 2) , (3 , 4)]
-([1,3],[2,4])
-
->>> zip [1, 2] [3, 4, 5]
-[(1,3),(2,4)]
-
--}
 
 
 -- Section 3: String interpolation
@@ -205,55 +136,6 @@ interpolateString kv s = case parseTemplate s of
     Just parsed -> case assignTemplate kv parsed of
         Left var -> Left (MissingVar var)
         Right x  -> Right x
-
-{-
-
->>> splitOn 'x' "foobar"
-Nothing
-
->>> splitOn 'x' "fooxbar"
-Just ("foo","bar")
-
->>> splitOn 'x' "foox"
-Just ("foo","")
-
->>> splitOn 'x' "fooxfooxfoo"
-Just ("foo","fooxfoo")
-
->>> parseTemplate "Hello${world}!"
-Just [PlainString "Hello",Variable "world",PlainString "!"]
-
->>> parseTemplate "Hello${!"
-Nothing
-
->>> parseTemplate "Hello$!"
-Nothing
-
->>> assignTemplate [] []
-Right ""
-
->>> assignTemplate [] [PlainString "Hello!"] 
-Right "Hello!"
-
->>> assignTemplate [("name", "Simon")] [PlainString "Hello ", Variable "name", PlainString "!"] 
-Right "Hello Simon!"
-
->>> assignTemplate [("Name", "Simon")] [PlainString "Hello ", Variable "name", PlainString "!"] 
-Left "name"
-
->>> assignTemplate [] [Variable "x", Variable "y"]
-Left "x"
-
->>> interpolateString [("name", "Simon")] "Hello ${name}!"
-Right "Hello Simon!"
-
->>> interpolateString [("name", "Simon")] "Hello $name!"
-Left InvalidTemplate
-
->>> interpolateString [("Name", "Simon")] "Hello ${name}!"
-Left (MissingVar "name")
-
--}
 
 
 -- Section 4: N-queens problem
@@ -307,37 +189,3 @@ queens n = go $ permutations $ range n
     where
         go [] = []
         go (x : xs) = if isSafe (enumerate x) then x : go xs else go xs
-
-{-
-
->>> range 3
-[0,1,2]
-
->>> enumerate "foo"
-[(0,'f'),(1,'o'),(2,'o')]
-
->>> splits [] 
-[([],[])]
-
->>> splits [1, 2, 3]
-[([1,2,3],[]),([1,2],[3]),([1],[2,3]),([],[1,2,3])]
-
->>> permutations []
-[[]]
-
->>> permutations [1, 2, 3]
-[[3,2,1],[3,1,2],[1,3,2],[2,3,1],[2,1,3],[1,2,3]]
-
->>> queens 1
-[[0]]
-
->>> queens 2
-[]
-
->>> queens 3
-[]
-
->>> queens 4
-[[1,3,0,2],[2,0,3,1]]
-
--}
