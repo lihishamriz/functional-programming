@@ -11,8 +11,7 @@
 module HW1 where
 
 import Prelude (Bool (..), Char, Either (..), Enum (..), Eq (..), Int, Maybe (..), Num (..), Ord (..), Show (..), String, all, and, any, concat, concatMap, const, curry, elem, error, filter, flip, foldl, foldr, fst, id, length, lookup, map, not, notElem, null, or, product, reverse, snd, sum, uncurry, undefined, (!!), ($), (&&), (++), (.), (||))
-import Distribution.Compat.Lens (_1)
-import Distribution.Simple.Utils (xargs)
+
 
 -- Section 1: Utility functions
 -- Basic Maybes
