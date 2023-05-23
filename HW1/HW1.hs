@@ -8,10 +8,9 @@
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
 
-module HW1 where
+module HW1.HW1 where
 
 import Prelude (Bool (..), Char, Either (..), Enum (..), Eq (..), Int, Maybe (..), Num (..), Ord (..), Show (..), String, all, and, any, concat, concatMap, const, curry, elem, error, filter, flip, foldl, foldr, fst, id, length, lookup, map, not, notElem, null, or, product, reverse, snd, sum, uncurry, undefined, (!!), ($), (&&), (++), (.), (||))
-
 
 -- Section 1: Utility functions
 -- Basic Maybes
@@ -107,10 +106,10 @@ parseTemplate :: String -> Maybe [ParsedString]
 parseTemplate [] = Nothing
 parseTemplate s = go s []
     where
-        go [] _ = Nothing
+        go [] res = Just res
         go xs res = case splitOn '$' xs of
-            Nothing -> Just (snoc res $ PlainString xs)
-            Just(a, b) -> go' b (snoc res $ PlainString a)
+            Nothing -> if null res then Nothing else Just (snoc res $ PlainString xs)
+            Just(a, b) -> if null a then go' b res else go' b (snoc res $ PlainString a)
                 where
                     go' ('{' : ys) res' = case splitOn '}' ys of
                         Nothing -> Nothing
