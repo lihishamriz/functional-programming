@@ -14,7 +14,6 @@
 
 module HW3 where
 
-import System.IO (putStrLn)
 import qualified Data.Map as M
 import Data.Map (Map, (!?))
 import qualified Data.Set as S
@@ -23,6 +22,8 @@ import Data.Either (either, fromLeft, fromRight, isLeft, isRight, lefts, partiti
 import Data.List (find, foldl', uncons)
 import Data.Maybe (catMaybes, fromMaybe, isJust, isNothing, listToMaybe, mapMaybe, maybe)
 import Prelude (Bool (..), Char, Either (..), Enum (..), Eq (..), Int, Maybe (..), Num (..), Ord (..), Ordering(..), Show (..), String, all, and, any, concat, concatMap, const, curry, drop, dropWhile, elem, error, filter, flip, foldl, foldr, fst, id, init, last, length, lookup, map, maximum, minimum, not, notElem, null, or, product, replicate, reverse, snd, sum, tail, take, takeWhile, uncurry, undefined, unlines, unzip, zip, zipWith, (!!), ($), (&&), (++), (.), (||))
+import System.IO (putStrLn) -- delete
+import Data.Ord (Down(Down)) -- delete
 
 type Variable = String
 data Expression = Not Expression | Or Expression Expression | And Expression Expression | Var Variable | Literal Bool deriving (Show, Eq)
@@ -40,17 +41,18 @@ class PrettyPrint a where
 
 instance PrettyPrint Expression where
   prettyPrint :: Expression -> String
-  prettyPrint (Not x) = "!" ++ addParenthesis x
-  prettyPrint (Or x y) = prettyPrint x ++ " || " ++ addParenthesis y
-  prettyPrint (And x y) = prettyPrint x ++ " && " ++ addParenthesis y
-  prettyPrint (Var v) = v
-  prettyPrint (Literal True) = "true"
-  prettyPrint (Literal False) = "false"
+  prettyPrint e = case e of
+    Not x         -> "!" ++ addParenthesis x
+    Or x y        -> prettyPrint x ++ " || " ++ addParenthesis y
+    And x y       -> prettyPrint x ++ " && " ++ addParenthesis y
+    Var v         -> v
+    Literal True  -> "true"
+    Literal False -> "false"
 
 addParenthesis :: Expression -> String
 addParenthesis e@(Or x y) = "(" ++ prettyPrint e ++ ")"
 addParenthesis e@(And x y) = "(" ++ prettyPrint e ++ ")"
-addParenthesis x = prettyPrint x
+addParenthesis e = prettyPrint e
 
 {-
 
@@ -70,23 +72,22 @@ addParenthesis x = prettyPrint x
 
 instance PrettyPrint Statement where
   prettyPrint :: Statement -> String
-  prettyPrint s = prettyPrintIndentation 0 s
+  prettyPrint s = prettyPrintWithIndentation 0 s
 
+prettyPrintWithIndentation :: Int -> Statement -> String
+prettyPrintWithIndentation n s = case s of
+  Return x        -> getIndentation n ++ "return " ++ prettyPrint x
+  Block xs        -> getIndentation n ++ "{\n" ++ block n xs ++ getIndentation n ++ "}"
+  If e xs         -> getIndentation n ++ "if (" ++ prettyPrint e ++ ") {\n" ++ block n xs ++ getIndentation n ++ "}"
+  IfElse e xs ys  -> prettyPrintWithIndentation n (If e xs) ++ " else {\n" ++ block n ys ++ getIndentation n ++ "}"
+  Define v e      -> getIndentation n ++ v ++ " = " ++ prettyPrint e
 
-prettyPrintIndentation :: Int -> Statement -> String
-prettyPrintIndentation n (Return x) = indentation n ++ "return " ++ prettyPrint x
-prettyPrintIndentation n (Block xs) = indentation n ++ "{\n" ++ block n xs ++ indentation n ++ "}"
-prettyPrintIndentation n (If e xs) = indentation n ++ "if (" ++ prettyPrint e ++ ") {\n" ++ block n xs ++ indentation n ++ "} "
-prettyPrintIndentation n (IfElse e xs ys) = prettyPrintIndentation n (If e xs) ++ "else {\n" ++ block n xs ++ indentation n ++ "} "
-prettyPrintIndentation n (Define v e) = indentation n ++ v ++ " = " ++ prettyPrint e
-
-indentation :: Int -> String
-indentation 0 = ""
-indentation n = "  " ++ indentation (n-1)
+getIndentation :: Int -> String
+getIndentation 0 = ""
+getIndentation n = "  " ++ getIndentation (n-1)
 
 block :: Int -> [Statement] -> String
-block n xs = unlines (map (prettyPrintIndentation (n+1)) xs)
-
+block n xs = unlines $ map (prettyPrintWithIndentation (n+1)) xs
 p :: Statement
 p = If ( Var "x") [ Return $ Literal True ]
 
@@ -107,33 +108,33 @@ s = If ( And ( Var "x") ( Not $ Var "y")) [ Define "z" ( Var "x") , Block [ Defi
 
 instance PrettyPrint [Statement] where
   prettyPrint :: [Statement] -> String
-  prettyPrint [] = ""
-  prettyPrint (x:xs) = prettyPrint x ++ "\n" ++ prettyPrint xs
+  prettyPrint xs = unlines $ map prettyPrint xs
 
 
 -- Section 1.2: Simplifying expressions and statements
 type Scope = Map Variable Bool
 
 simplifyExpression :: Scope -> Expression -> Expression
-simplifyExpression scope (Var v) = case scope !? v of
-  Just b -> Literal b
-  Nothing -> Var v
+simplifyExpression scope e = case e of
+  Not x -> case simplifyExpression scope x of
+    Literal b -> Literal (not b)
+    _ -> e
 
-simplifyExpression scope e@(Not x) = case simplifyExpression scope x of
-  Literal b -> Literal (not b)
-  _ -> e
+  Or x y -> case (simplifyExpression scope x, simplifyExpression scope y) of
+    (Literal True, _) -> Literal True
+    (_, Literal True) -> Literal True
+    _ -> e
+    
+  And x y -> case (simplifyExpression scope x, simplifyExpression scope y) of
+    (Literal False, _) -> Literal False
+    (_, Literal False) -> Literal False
+    _ -> e
 
-simplifyExpression scope e@(Or x y) = case (simplifyExpression scope x, simplifyExpression scope y) of
-  (Literal True, _) -> Literal True
-  (_, Literal True) -> Literal True
-  _ -> e
-
-simplifyExpression scope e@(And x y) = case (simplifyExpression scope x, simplifyExpression scope y) of
-  (Literal False, _) -> Literal False
-  (_, Literal False) -> Literal False
-  _ -> e
-
-simplifyExpression _ (Literal x) = Literal x
+  Var v -> case scope !? v of
+    Just b  -> Literal b
+    Nothing -> Var v
+    
+  Literal b -> Literal b
 
 simplifyWithScope :: Scope -> [Statement] -> [Statement]
 simplifyWithScope s = reverse . snd . foldl' (uncurry go) (s, []) where
@@ -142,37 +143,34 @@ simplifyWithScope s = reverse . snd . foldl' (uncurry go) (s, []) where
     let (newScope, simplified) = simplifyStatement scope statement
      in (newScope, simplified ++ statementsSoFar)
   simplifyStatement :: Scope -> Statement -> (Scope, [Statement])
+  simplifyStatement scope s = case s of
+    Return e -> (scope, [Return simplified]) where
+      simplified = simplifyExpression scope e
 
-  simplifyStatement scope (Return e) =
-    let simplified = simplifyExpression scope e
-    in (scope, [Return simplified])
+    Define v e -> case simplifyExpression scope e of
+      Literal b -> (newScope, [Define v newExp]) where
+        newExp = simplifyExpression scope e
+        newScope = M.insert v b scope
+      _ -> (M.delete v scope, [s])
 
-  simplifyStatement scope s@(Define v e) = case simplifyExpression scope e of
-    (Literal b) -> (newScope, [Define v newExp]) where
-      newExp = simplifyExpression scope e
-      newScope = M.insert v b scope
-    _ -> (M.delete v scope, [s])
+    Block statements -> (scope, [Block simplified]) where
+      simplified = simplifyWithScope scope statements
 
-  simplifyStatement scope (Block statements) =
-    let simplified = simplifyWithScope scope statements
-    in (scope, [Block simplified])
+    If cond statements -> case simplifyExpression scope cond of
+      Literal False -> (scope, [])
+      Literal True  -> (scope, [Block $ simplifyWithScope scope statements])
+      Var v         -> (scope, [If cond $ simplifyWithScope newScope statements]) where
+        newScope = M.insert v True scope
+      _ -> (scope, [If cond $ simplifyWithScope scope statements])
 
-  simplifyStatement scope s@(If cond statements) = case simplifyExpression scope cond of
-    (Literal False) -> (scope, [])
-    (Literal True) -> (scope, [Block $ simplifyWithScope scope statements])
-    (Var v) ->
-      let newScope = M.insert v True scope
-      in (scope, [If cond (simplifyWithScope newScope statements)])
-    _ -> (scope, [If cond (simplifyWithScope scope statements)])
-
-  simplifyStatement scope s@(IfElse cond ifBlock elseBlock) = case simplifyExpression scope cond of
-    (Literal False) -> (scope, [Block $ simplifyWithScope scope elseBlock])
-    (Literal True) -> (scope, [Block $ simplifyWithScope scope ifBlock])
-    (Var v) -> (scope, [IfElse cond ifBlock' elseBlock']) where
-      updateVar b = M.insert v b scope
-      ifBlock' = simplifyWithScope (updateVar True) ifBlock
-      elseBlock' = simplifyWithScope (updateVar False) elseBlock
-    _ -> (scope, [IfElse cond (simplifyWithScope scope ifBlock) (simplifyWithScope scope elseBlock)])
+    IfElse cond ifBlock elseBlock -> case simplifyExpression scope cond of
+      Literal False -> (scope, [Block $ simplifyWithScope scope elseBlock])
+      Literal True  -> (scope, [Block $ simplifyWithScope scope ifBlock])
+      Var v         -> (scope, [IfElse cond ifBlock' elseBlock']) where
+        updateVar b = M.insert v b scope
+        ifBlock' = simplifyWithScope (updateVar True) ifBlock
+        elseBlock' = simplifyWithScope (updateVar False) elseBlock
+      _ -> (scope, [IfElse cond (simplifyWithScope scope ifBlock) (simplifyWithScope scope elseBlock)])
 
 simplify :: [Statement] -> [Statement]
 simplify = simplifyWithScope M.empty
@@ -194,7 +192,7 @@ instance Show a => Show (Tree a) where
     go = \case
       [] -> ""
       [x] -> show x
-      (x : y : xs) -> show x ++ "," ++ go (y: xs)
+      (x : xs) -> show x ++ "," ++ go xs
 
 instance Eq a => Eq (Tree a) where
   (==) :: Eq a => Tree a -> Tree a -> Bool
@@ -234,22 +232,18 @@ nub [] = []
 nub (x : xs) = x : nub (filter (/=x) xs)
 
 sort :: Ord a => [a] -> [a]
-sort xs = concat (go (M.assocs (createMap (listToTuples xs))))
-
-go :: [(a, Int)] -> [[a]]
-go [] = []
-go ((x, y): xs) = replicate y x : go xs
-
-createMap :: (Num a, Ord k) => [(k, a)] -> M.Map k a
-createMap = M.fromListWith (+)
-
-listToTuples = map (\x -> (x, 1))
+sort xs = concat $ replicateKeys $ M.assocs $ tuplesToMap $ listToTuples xs
+  where
+    replicateKeys [] = []
+    replicateKeys ((x, y): xs) = replicate y x : replicateKeys xs
+    tuplesToMap = M.fromListWith (+)
+    listToTuples = map (\x -> (x, 1))
 
 sortOn :: Ord b => (a -> b) -> [a] -> [a]
-sortOn f xs = map (\(Arg _ v) -> v) sortedArgList
+sortOn f xs = argToValue $ sort $ valueToArg xs
   where
-    sortedArgList = sort argList
-    argList = map (\x -> Arg (f x) x) xs
+    argToValue = map (\(Arg _ v) -> v)
+    valueToArg = map (\x -> Arg (f x) x)
 
 data Arg a b = Arg a b
 instance Eq a => Eq (Arg a b) where
