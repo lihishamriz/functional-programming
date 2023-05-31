@@ -48,8 +48,8 @@ instance PrettyPrint Expression where
     Literal False -> "false"
 
 addParenthesis :: Expression -> String
-addParenthesis e@(Or x y) = "(" ++ prettyPrint e ++ ")"
-addParenthesis e@(And x y) = "(" ++ prettyPrint e ++ ")"
+addParenthesis e@(Or _ _) = "(" ++ prettyPrint e ++ ")"
+addParenthesis e@(And _ _) = "(" ++ prettyPrint e ++ ")"
 addParenthesis e = prettyPrint e
 
 instance PrettyPrint Statement where
@@ -108,7 +108,7 @@ simplifyWithScope s = reverse . snd . foldl' (uncurry go) (s, []) where
     let (newScope, simplified) = simplifyStatement scope statement
      in (newScope, simplified ++ statementsSoFar)
   simplifyStatement :: Scope -> Statement -> (Scope, [Statement])
-  simplifyStatement scope s = case s of
+  simplifyStatement scope statement = case statement of
     Return e -> (scope, [Return simplified]) where
       simplified = simplifyExpression scope e
 
@@ -116,7 +116,7 @@ simplifyWithScope s = reverse . snd . foldl' (uncurry go) (s, []) where
       Literal b -> (newScope, [Define v newExp]) where
         newExp = simplifyExpression scope e
         newScope = M.insert v b scope
-      _ -> (M.delete v scope, [s])
+      _ -> (M.delete v scope, [Define v e])
 
     Block statements -> (scope, [Block simplified]) where
       simplified = simplifyWithScope scope statements
@@ -170,7 +170,7 @@ nub [] = []
 nub (x : xs) = x : nub (filter (/=x) xs)
 
 sort :: Ord a => [a] -> [a]
-sort xs = concat $ replicateKeys $ M.assocs $ tuplesToMap $ listToTuples xs
+sort list = concat $ replicateKeys $ M.assocs $ tuplesToMap $ listToTuples list
   where
     replicateKeys [] = []
     replicateKeys ((x, y): xs) = replicate y x : replicateKeys xs
