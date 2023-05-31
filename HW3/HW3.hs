@@ -22,8 +22,6 @@ import Data.Either (either, fromLeft, fromRight, isLeft, isRight, lefts, partiti
 import Data.List (find, foldl', uncons)
 import Data.Maybe (catMaybes, fromMaybe, isJust, isNothing, listToMaybe, mapMaybe, maybe)
 import Prelude (Bool (..), Char, Either (..), Enum (..), Eq (..), Int, Maybe (..), Num (..), Ord (..), Ordering(..), Show (..), String, all, and, any, concat, concatMap, const, curry, drop, dropWhile, elem, error, filter, flip, foldl, foldr, fst, id, init, last, length, lookup, map, maximum, minimum, not, notElem, null, or, product, replicate, reverse, snd, sum, tail, take, takeWhile, uncurry, undefined, unlines, unzip, zip, zipWith, (!!), ($), (&&), (++), (.), (||))
-import System.IO (putStrLn) -- delete
-import Data.Ord (Down(Down)) -- delete
 
 type Variable = String
 data Expression = Not Expression | Or Expression Expression | And Expression Expression | Var Variable | Literal Bool deriving (Show, Eq)
@@ -54,22 +52,6 @@ addParenthesis e@(Or x y) = "(" ++ prettyPrint e ++ ")"
 addParenthesis e@(And x y) = "(" ++ prettyPrint e ++ ")"
 addParenthesis e = prettyPrint e
 
-{-
-
->>> prettyPrint $ Not $ Var "x"
-"!x"
-
->>> prettyPrint $ Or ( Var "x") ( Var "y")
-"x || y"
-
->>> prettyPrint $ And ( Var "x") ( Not $ Var "y")
-"x && !y"
-
->>> prettyPrint $ Or ( Var "x") ( Not $ And ( Var "y") ( Not $ Var "z"))
-"x || !(y && !z)"
-
--}
-
 instance PrettyPrint Statement where
   prettyPrint :: Statement -> String
   prettyPrint s = prettyPrintWithIndentation 0 s
@@ -88,23 +70,6 @@ getIndentation n = "  " ++ getIndentation (n-1)
 
 block :: Int -> [Statement] -> String
 block n xs = unlines $ map (prettyPrintWithIndentation (n+1)) xs
-p :: Statement
-p = If ( Var "x") [ Return $ Literal True ]
-
-s :: Statement
-s = If ( And ( Var "x") ( Not $ Var "y")) [ Define "z" ( Var "x") , Block [ Define "y" ( Literal False ) , Define "y" ( And ( Var "y") ( Var "z")) ], Define "a" ( Or ( Var "z") ( Var "y")) , Block [], IfElse ( Var "a") [ Return $ Literal True ] [ Return $ Var "z"] ]
-
-{-
-
->>> prettyPrint p
-"if (x) {\n  return true\n}\n"
-
->>> prettyPrint s
-"if (x && !y) {\n  z = x\n  {\n    y = false\n    y = y && z\n  }\n\n  a = z || y\n  {\n  }\n\n  if (a) {\n    return true\n  }\nelse {\n    return true\n  }\n\n}\n"
-
->>> putStrLn (prettyPrint s)
-
--}
 
 instance PrettyPrint [Statement] where
   prettyPrint :: [Statement] -> String
@@ -175,14 +140,6 @@ simplifyWithScope s = reverse . snd . foldl' (uncurry go) (s, []) where
 simplify :: [Statement] -> [Statement]
 simplify = simplifyWithScope M.empty
 
-q :: [Statement]
-q = [If (Var "x") [Define "z" (Or (Var "x") (Var "y")), Block [If (Var "z") [Define "y" (Not (Var "z"))], Define "z" (Var "y"), IfElse (Var "z") [Return (Literal False)] [Return (Var "z")]]]]
-
-{-
-
->>> putStrLn $ prettyPrint $ simplify statements
-
--}
 
 -- Section 2.1: Basic type classes
 data Tree a = Empty | Tree (Tree a) a (Tree a)
@@ -206,25 +163,6 @@ inOrder :: Tree a -> [a]
 inOrder Empty = []
 inOrder (Tree l x r) = inOrder l ++ [x] ++ inOrder r
 
-single e = Tree Empty e Empty
-tree1 = Tree Empty 1 $ Tree Empty 2 $ single 3
-tree2 = Tree (single 1) 2 (single 3)
-
-{-
-
->>> tree1 == tree2
-True
-
->>> show tree1
-"{1,2,3}"
-
->>> show tree2
-"{1,2,3}"
-
->>> tree1 `compare` tree2
-EQ
-
--}
 
 -- Section 2.2: Typeclass constraints
 nub :: Eq a => [a] -> [a]
@@ -250,24 +188,3 @@ instance Eq a => Eq (Arg a b) where
   (Arg a1 _) == (Arg a2 _) = a1 == a2
 instance Ord a => Ord (Arg a b) where
   (Arg a1 _) <= (Arg a2 _) = a1 <= a2
-
-data Person = Person Int String deriving Show
-age (Person a _)=a
-name (Person _ n) = n
-persons = [Person 40 "Taylor", Person 42 "Isaac", Person 37 "Zac"]
-
-{-
-
->>> nub [2,1,3,3,4,1,2]
-[2,1,3,4]
-
->>> sort [3, 1, 2, 3]
-[1,2,3,3]
-
->>> sortOn (Down . name) persons
-[Person 37 "Zac",Person 40 "Taylor",Person 42 "Isaac"]
-
->>> sortOn (Down . age) persons
-[Person 42 "Isaac",Person 40 "Taylor",Person 37 "Zac"]
-
--}
