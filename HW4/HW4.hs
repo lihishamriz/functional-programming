@@ -9,7 +9,7 @@
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
-module HW4.HW4 where
+module HW4 where
 
 import Data.Either
 import Data.List (foldl', uncons)
@@ -23,10 +23,10 @@ import Data.Set (Set)
 import qualified Data.Set as S
 import Prelude (Bool (..), Char, Either (..), Enum (..), Eq (..), Foldable (foldMap, foldl, foldr), Functor (fmap), Int, Maybe (..), Monoid (..), Num (..), Ord (..), Ordering (..), Semigroup (..), Show (..), String, all, and, any, concat, concatMap, const, curry, drop, dropWhile, error, filter, flip, fst, id, init, map, not, or, replicate, reverse, snd, take, takeWhile, uncurry, undefined, zip, zipWith, (!!), ($), (&&), (++), (.), (||))
 
-import HW4.Deque (Deque)
-import qualified HW4.Deque as DQ
-import HW4.PersistentArray (PersistentArray)
-import qualified HW4.PersistentArray as PA
+import Deque (Deque)
+import qualified Deque as DQ
+import PersistentArray (PersistentArray)
+import qualified PersistentArray as PA
 
 
 -- Section 1: Foldable functions

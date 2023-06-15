@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
-module HW4.Deque (Deque, empty, pushr, pushl, popr, popl) where
+module Deque (Deque, empty, pushr, pushl, popr, popl) where
 
 empty :: Deque a
 empty = Deque [] []

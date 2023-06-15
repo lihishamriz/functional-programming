@@ -3,7 +3,7 @@
 
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
-module HW4.PersistentArray (PersistentArray, lookup, set, empty, length, pushr) where
+module PersistentArray (PersistentArray, lookup, set, empty, length, pushr) where
 
 import Data.Array (Array)
 import qualified Data.Array as A
