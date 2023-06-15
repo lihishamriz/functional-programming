@@ -48,22 +48,22 @@ null :: Foldable t => t a -> Bool
 null = isNothing . getFirst . foldMap (\_ -> First (Just ()))
 
 maximum :: (Foldable t, Ord a) => t a -> Maybe a
-maximum = foldr (\x acc -> Just $ maybe x (max x) acc) Nothing
+maximum = maxBy id
 
 maxBy :: (Foldable t, Ord b) => (a -> b) -> t a -> Maybe a
-maxBy f = foldr (\x acc -> Just $ maybe x (\y -> if f x > f y then x else y) acc) Nothing
+maxBy f = foldr (\x res -> Just $ maybe x (\y -> if f x > f y then x else y) res) Nothing
 
 minimum :: (Foldable t, Ord a) => t a -> Maybe a
-minimum = foldr (\x acc -> Just $ maybe x (min x) acc) Nothing
+minimum = minBy id
 
 minBy :: (Foldable t, Ord b) => (a -> b) -> t a -> Maybe a
-minBy f = foldr (\x acc -> Just $ maybe x (\y -> if f x < f y then x else y) acc) Nothing
+minBy f = foldr (\x res -> Just $ maybe x (\y -> if f x < f y then x else y) res) Nothing
 
 sum :: (Foldable t, Num a) => t a -> a
-sum = foldr (+) 0
+sum = getSum . foldMap Sum
 
 product :: (Foldable t, Num a) => t a -> a
-product = foldr (*) 1
+product = getProduct . foldMap Product
 
 {-
 
@@ -75,6 +75,9 @@ product = foldr (*) 1
 
 >>> toList $ Nothing
 []
+
+>>> toList $ Tree (single 1) 2 (single 3)
+[1,2,3]
 
 >>> elem 3 [1,2,3]
 True
@@ -156,18 +159,19 @@ Just "bar"
 
 -}
 
+
 -- Section 2: Functor functions
 fmapToFst :: Functor f => (a -> b) -> f a -> f (b, a)
 fmapToFst f = fmap (\x -> (f x, x))
 
 fmapToSnd :: Functor f => (a -> b) -> f a -> f (a, b)
-fmapToSnd f = fmap (\x -> (x,f x))
+fmapToSnd f = fmap (\x -> (x, f x))
 
 strengthenL :: Functor f => b -> f a -> f (b, a)
 strengthenL b = fmap (b,)
 
 strengthenR :: Functor f => b -> f a -> f (a, b)
-strengthenR b = fmap (, b)
+strengthenR b = fmap (,b)
 
 unzip :: Functor f => f (a, b) -> (f a, f b)
 unzip pairs = (fmap fst pairs, fmap snd pairs)
@@ -175,8 +179,8 @@ unzip pairs = (fmap fst pairs, fmap snd pairs)
 coUnzip :: Functor f => Either (f a) (f b) -> f (Either a b)
 coUnzip = either (fmap Left) (fmap Right)
 
-
 {-
+
 >>> fmapToFst length ["foo", "bar"]
 [(3,"foo"),(3,"bar")]
 
@@ -197,45 +201,41 @@ Right (42,"foo")
 
 >>> coUnzip (Left "foo" :: Either String [Int])
 [Left 'f',Left 'o',Left 'o']
+
 -}
+
 
 -- Section 3: Unfodlable
 class Unfoldable t where
     fromList :: [a] -> t a
     fromList = unfoldr (\case
         [] -> Nothing
-        (x:xs) -> Just (x, xs))
+        (x : xs) -> Just (x, xs))
 
     unfoldr :: (b -> Maybe (a, b)) -> b -> t a
     unfoldr f = fromList . unfoldrList f where
-        unfoldrList :: (b -> Maybe (a, b)) -> b -> [a]
         unfoldrList g b = case g b of
                 Nothing -> []
                 Just (a, b') -> a : unfoldrList g b'
+                
     {-# MINIMAL fromList | unfoldr #-}
 
 instance Unfoldable [] where
     fromList :: [a] -> [a]
     fromList xs = xs
 
--- need to check if it's ok 
 instance Unfoldable Deque where
     unfoldr :: (b -> Maybe (a, b)) -> b -> Deque a
-    unfoldr f = unfoldrDeque f DQ.empty
-        where
-        unfoldrDeque :: (b -> Maybe (a, b)) -> Deque a -> b -> Deque a
+    unfoldr f = unfoldrDeque f DQ.empty where
         unfoldrDeque g dq b = case g b of
             Nothing -> dq
             Just (a, b') -> unfoldrDeque g (DQ.pushr a dq) b'
 
-
 instance Unfoldable PersistentArray where
     fromList :: [a] -> PersistentArray a
-    fromList  x = foldr PA.pushr PA.empty $ reverse x
+    fromList x = foldr PA.pushr PA.empty $ reverse x
 
 {-
->>> dequeFromList
-Variable not in scope: dequeFromList
 
 >>> fromList [1, 2, 3] :: [Int]
 [1,2,3]
@@ -252,16 +252,20 @@ Variable not in scope: dequeFromList
 >>> take 5 $ unfoldr (\ x -> Just (x, x + 1)) 1 :: [Int]
 [1,2,3,4,5]
 
-class Unfoldable t where
-    fromList :: [a] -> t a
-    unfoldr :: (b -> Maybe (a, b)) -> b -> t a
-    {-# MINIMAL fromList | unfoldr #-}
+>>> map fst [dq3, dq4, dq5] 
+[1,2,3]
 
-Section 3
-instance Unfoldable []
-instance Unfoldable Deque
-instance Unfoldable PersistentArray
+>>> dequeFromUnfoldr
+Deque [] [8,4,2,1]
+
+>>> [PA.lookup 0 arrayFromList , PA.lookup 1 arrayFromList , PA.lookup 2 arrayFromList]
+[Just 1,Just 2,Just 3]
+
+>>> [PA.lookup 0 arrayFromUnfoldr , PA.lookup 1 arrayFromUnfoldr , PA.lookup 3 arrayFromUnfoldr]
+[Just 1,Just 2,Just 8]
+
 -}
+
 
 -- Section 4: Data structure instances
 instance Foldable Deque where
@@ -270,74 +274,76 @@ instance Foldable Deque where
         Nothing -> mempty
         Just (x, dq') -> f x <> foldMap f dq'
 
-
 instance Functor Deque where
     fmap :: (a -> b) -> Deque a -> Deque b
-    fmap f dq = fromList (map f (toList dq))
+    fmap f dq = fromList $ map f (toList dq)
 
 instance Semigroup (Deque a) where
     (<>) :: Deque a -> Deque a -> Deque a
-    deque1 <> deque2 = case DQ.popl deque2 of
-        Nothing -> deque1
-        Just (x, dq2') -> (x `DQ.pushr` deque1) <> dq2'
+    dq1 <> dq2 = fromList $ toList dq1 <> toList dq2
 
---[tamir] not sure if the mappend is need 
 instance Monoid (Deque a) where
     mempty :: Deque a
     mempty = DQ.empty
     
-    mappend :: Deque a -> Deque a -> Deque a
-    mappend = (<>)
-    
---[tamir] not sure about this one 
+
 instance Foldable PersistentArray where
-  foldMap :: Monoid m => (a -> m) -> PersistentArray a -> m
-  foldMap f arr = foldr (\x acc -> f x <> acc) mempty arr
+    foldMap :: Monoid m => (a -> m) -> PersistentArray a -> m
+    foldMap = go 0 where
+        go i f arr = case PA.lookup i arr of
+            Nothing -> mempty
+            Just x  -> f x <> go (i + 1) f arr
 
 instance Functor PersistentArray where 
-  fmap :: (a -> b) -> PersistentArray a -> PersistentArray b
-  fmap f arr = fromList $ fmap f (toList arr)
+    fmap :: (a -> b) -> PersistentArray a -> PersistentArray b
+    fmap f arr = fromList $ fmap f (toList arr)
 
 instance Semigroup (PersistentArray a) where
-  (<>) :: PersistentArray a -> PersistentArray a -> PersistentArray a
-  arr1 <> arr2 = fromList $ toList arr1 <> toList arr2
+    (<>) :: PersistentArray a -> PersistentArray a -> PersistentArray a
+    arr1 <> arr2 = fromList $ toList arr1 <> toList arr2
 
---[tamir] not sure if the mappend is need 
 instance Monoid (PersistentArray a) where
-  mempty :: PersistentArray a
-  mempty = PA.empty
+    mempty :: PersistentArray a
+    mempty = PA.empty
 
-  mappend :: PersistentArray a -> PersistentArray a -> PersistentArray a
-  mappend = (<>)
 {-
+
+>>> toList $ dq7 <> dq8
+[1,2,3,4]
+
+>>> toList $ array1 <> array2
+[1,2,3,4]
 
 -}
-{-
--- Section 4: Data structure instances
-instance Foldable Deque
-instance Functor Deque
-instance Semigroup (Deque a)
-instance Monoid (Deque a)
 
-instance Foldable PersistentArray
-instance Functor PersistentArray
-instance Semigroup (PersistentArray a)
-instance Monoid (PersistentArray a)
 
 -- Bonus section
 newtype ZipList a = ZipList {getZipList :: [a]} deriving (Show, Eq)
 
-instance Semigroup a => Semigroup (ZipList a)
-instance Monoid a => Monoid (ZipList a)
+instance Semigroup a => Semigroup (ZipList a) where
+    (<>) :: ZipList a -> ZipList a -> ZipList a
+    ZipList xs <> ZipList ys = ZipList (zipWith (<>) xs ys)
+
+instance Monoid a => Monoid (ZipList a) where
+    mempty :: Monoid a => ZipList a
+    mempty = ZipList $ unfoldr (\_ -> Just (mempty, ())) ()
+
+{-
+
+>>> map getSum $ getZipList $ ZipList (map Sum [1, 2, 3]) <> ZipList (map Sum [4, 5])
+[5,7]
+
+>>> take 5 $ map getProduct $ getZipList $ ZipList (map Product [1..]) <> ZipList (map Product [0..])
+[0,2,6,12,20]
 
 -}
+
 
 -- TESTS
 data Tree a = Empty | Tree (Tree a) a (Tree a) deriving Show
 
 single :: a -> Tree a
 single a = Tree Empty a Empty
-
 
 instance Foldable Tree where
     foldr :: ( a -> b -> b ) -> b -> Tree a -> b
@@ -347,23 +353,29 @@ instance Foldable Tree where
             currentAgg = f a rAgg
             in foldr f currentAgg l
 
--- dequeFromList :: Deque Int
--- dequeFromList = fromList [1, 2, 3, 4]
+dequeFromList :: Deque Int
+dequeFromList = fromList [1, 2, 3, 4]
 
--- dequeFromUnfoldr :: Deque Int
--- dequeFromUnfoldr = unfoldr (\x -> if x < 10 then Just (x,x*2) else Nothing) 1
+dequeFromUnfoldr :: Deque Int
+dequeFromUnfoldr = unfoldr (\x -> if x < 10 then Just (x,x*2) else Nothing) 1
 
+arrayFromList :: PersistentArray Int
+arrayFromList = fromList [1, 2, 3, 4]
 
--- arrayFromList :: PersistentArray Int
--- arrayFromList = fromList [1, 2, 3, 4]
+arrayFromUnfoldr :: PersistentArray Int
+arrayFromUnfoldr = unfoldr (\x -> if x < 10 then Just (x,x*2) else Nothing) 1
 
--- arrayFromUnfoldr :: PersistentArray Int
--- arrayFromUnfoldr = unfoldr (\x -> if x < 10 then Just (x,x*2) else Nothing) 1
+dq3 :: (Int, Deque Int)
+dq3 = fromJust $ DQ.popl dequeFromList 
+dq4 :: (Int, Deque Int)
+dq4 = fromJust $ DQ.popl $ snd dq3
+dq5 :: (Int, Deque Int)
+dq5 = fromJust $ DQ.popl $ snd dq4
 
-dq1 :: Deque Int
-dq1 = DQ.pushl 1 $ DQ.pushr 2 DQ.empty
-dq2 :: Deque Int
-dq2 = DQ.pushl 3 $ DQ.pushr 4 DQ.empty
+dq7 :: Deque Int
+dq7 = DQ.pushl 1 $ DQ.pushr 2 DQ.empty
+dq8 :: Deque Int
+dq8 = DQ.pushl 3 $ DQ.pushr 4 DQ.empty
 
 array1 :: PersistentArray Int
 array1 = PA.pushr 2 $ PA.pushr 1 PA.empty
