@@ -98,9 +98,9 @@ split = go []
 
 -- Section 3
 guessingGame :: Int -> Int -> IO Int
-guessingGame low high = do
-    putStrLn ("Please pick a number between " ++ show low ++ " and " ++ show high)
-    guessingGame' low high
+guessingGame minN maxN = do
+    putStrLn ("Please pick a number between " ++ show minN ++ " and " ++ show maxN)
+    guessingGame' minN maxN
 
 guessingGame' :: Int -> Int -> IO Int
 guessingGame' minN maxN
@@ -142,59 +142,3 @@ runable (var, exp) = do
             divisionByZero = divisionByZero s + 1}
         
         Right value -> modify $ \s -> s { finalValues = M.insert var value (finalValues s)}
-
-
-{-
-
->>> dq1 = 1 `DQ.pushl` (2 `DQ.pushl` DQ.empty)
->>> dq2 = 30 `DQ.pushl` (40 `DQ.pushl` DQ.empty )
->>> toList $ liftA2 (*) dq1 dq2
-[30,40,60,80]
-
->>> toList $ dq1 >>= (\x -> (x * 300) `DQ.pushl` (( x * 400) `DQ.pushl` DQ.empty ))
-[300,400,600,800]
-
->>> ne1 = 1 :| [2]
->>> ne2 = 30 :| [40]
->>> toList $ liftA2 (*) ne1 ne2
-[30,40,60,80]
-
->>> toList $ ne1 >>= (\x -> (x * 300) :| [x * 400 ])
-[300,400,600,800]
-
->>> ne3 = 1 :| [2,3,4]
->>> ne4 = 10 :| [20]
->>> toList $ liftA2 (+) ne3 ne4
-[11,21,12,22,13,23,14,24]
-
->>> toList $ ne3 >>= (\x -> (x * 10) :| [x * 100 ])
-[10,100,20,200,30,300,40,400]
-
--}
-
-list :: [(String, Expression)]
-list =
-  [ ("x", Literal 0)
-  , ("z", Division (Literal 42) (Identifier "x"))
-  , ("x", Plus (Literal 3) (Identifier "a"))
-  -- x will be missing here, since it failed above.
-  , ("y", Plus (Identifier "x") (Identifier "x"))
-  , ("x", Plus (Literal 3) (Literal 4))
-  , ("y", Plus (Identifier "x") (Identifier "x"))
-  -- An assignment can reference itself.
-  , ("x", Mult (Identifier "x") (Identifier "x"))
-  ]
-
--- >>> runCalculator list
--- Result {finalValues = fromList [("x",49),("y",14)], missingVariables = fromList [("a",1),("x",1)], divisionByZero = 1}
-
-list2 :: [(String, Expression)]
-list2 = 
-    [ ("x", Plus ( Literal 1) ( Literal 3) )
-    , ("y", Division ( Mult ( Literal 3) ( Identifier "x")) ( Literal 2) )
-    , ("x", Plus ( Literal 42) ( Identifier "y"))
-    , ("z", Minus ( Mult ( Literal 4) ( Identifier "y")) ( Identifier "x") )
-    ]
-
--- >>> runCalculator list2
--- Result {finalValues = fromList [("x",48),("y",6),("z",-24)], missingVariables = fromList [], divisionByZero = 0}
